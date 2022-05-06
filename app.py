@@ -13,20 +13,22 @@ from get_db import get_database
 # sys.path.insert(1, "~/trading/python_trading/Src")
 from nsetools.nse import Nse
 from driver import Driver
+import multiprocessing
 
 class Uptrend:
     def __init__(self):
         self.nse = Nse()
         self.dri = Driver()
-        self.res = []
-        self.total = []
-        self.volBased = []
+        self.res = multiprocessing.Manager().list()
+        self.total = multiprocessing.Manager().list()
+        self.volBased = multiprocessing.Manager().list()
         self.trackedStocks = set()
 
     def get_uptrend(self, stock, retry):
         # print(f"checking {stock}")
         self.total.append(stock)
         stk = stock.split(".")[0]
+        self.trackedStocks.add(stk)
         rnge = 4
         try:
             ticker_data = self.dri.get_ticker_data(
@@ -96,9 +98,13 @@ class Uptrend:
             )
             # with concurrent.futures.ProcessPoolExecutor() as executor:
             #     executor.map(get_uptrend, stocks_of_sector["symbol"])
-            for stock in stocks_of_sector["symbol"]:
-                self.get_uptrend(stock, retry=0)
-                self.trackedStocks.add(stock.split(".")[0])
+            # multiprocessing
+            with multiprocessing.Pool(processes=2) as pool:
+                result = pool.map(self.get_uptrend,stocks_of_sector["symbol"])
+            pool.close()
+
+            # for stock in stocks_of_sector["symbol"]:
+            #     self.get_uptrend(stock, retry=0)
                 # get_flat(stock)
         result = list(set(self.res))
         volumeBased = [dict(t) for t in set(tuple(d.items()) for d in self.volBased)]
